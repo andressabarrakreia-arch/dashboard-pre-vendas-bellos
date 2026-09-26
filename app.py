@@ -26,7 +26,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("📊 Dashboard de Pré-Vendas & Atendimento")
-st.markdown("Análise completa de leads, canais, agendamentos e visitas com deduplicação inteligente por telefone.")
+st.markdown("Análise comparativa anual, canais, status e conversão com regra inteligente de deduplicação.")
 
 # Upload do arquivo ou uso do arquivo padrão caso já esteja na pasta
 @st.cache_data
@@ -40,7 +40,7 @@ def load_data(uploaded_file):
             return None
     return df
 
-uploaded_file = st.sidebar.file_uploader("📂 Envie seu relatório CSV atualizado", type=["csv"])
+uploaded_file = st.sidebar.file_uploader("📂 Envie seu relatório CSV (Anual ou Mensal)", type=["csv"])
 df_raw = load_data(uploaded_file)
 
 if df_raw is None:
@@ -55,20 +55,35 @@ else:
     df['Contato_Tel'] = df['Celular_Limpo'].mask(df['Celular_Limpo'] == '', df['Telefone_Limpo'])
     df['Contato_Tel'] = df['Contato_Tel'].replace(['nan', 'None', ''], pd.NA)
 
+    # Converter data para extrair Mês/Ano
+    df['Data_Criacao'] = pd.to_datetime(df['Criado em'], errors='coerce')
+    df['Mês'] = df['Data_Criacao'].dt.strftime('%Y-%m')
+
     # Sidebar - Filtros
     st.sidebar.header("🔍 Filtros de Análise")
     
-    # Checkbox para deduplicação
-    remover_duplicados = st.sidebar.checkbox("Remover Contatos Dupliqués (por Telefone)", value=True)
+    # Checkbox para deduplicação com regra de Sucesso
+    remover_duplicados = st.sidebar.checkbox("Remover Duplicados (Preservando 'Sucesso')", value=True)
     
     if remover_duplicados:
-        # Mantém o primeiro registro de cada telefone válido, e preserva os sem telefone (NA)
-        df_validos = df.dropna(subset=['Contato_Tel']).drop_duplicates(subset=['Contato_Tel'], keep='first')
-        df_sem_tel = df[df['Contato_Tel'].isna()]
-        df = pd.concat([df_validos, df_sem_tel]).reset_index(drop=True)
-        st.sidebar.success(f"Deduplicação ativa: {len(df_raw)} ➔ {len(df)} leads únicos.")
+        # Separa leads com Status 'Sucesso' (mantém todos) dos demais
+        df_sucesso = df[df['Status'].str.lower() == 'sucesso']
+        df_outros = df[df['Status'].str.lower() != 'sucesso']
+        
+        # Deduplica apenas os outros com base no telefone
+        df_outros_unicos = df_outros.dropna(subset=['Contato_Tel']).drop_duplicates(subset=['Contato_Tel'], keep='first')
+        df_outros_sem_tel = df_outros[df_outros['Contato_Tel'].isna()]
+        
+        df = pd.concat([df_sucesso, df_outros_unicos, df_outros_sem_tel]).reset_index(drop=True)
+        st.sidebar.success(f"Deduplicação aplicada (Sucessos mantidos): {len(df_raw)} ➔ {len(df)} registros.")
     else:
-        st.sidebar.info(f"Exibindo todos os {len(df)} registros (sem deduplicação).")
+        st.sidebar.info(f"Exibindo todos os {len(df)} registros brutos.")
+
+    # Filtro de Mês / Período
+    meses_disponiveis = sorted(df['Mês'].dropna().unique().tolist())
+    sel_meses = st.sidebar.multiselect("Filtrar por Mês", meses_disponiveis, default=[])
+    if sel_meses:
+        df = df[df['Mês'].isin(sel_meses)]
 
     # Filtro de Responsável / Atendente
     responsaveis = sorted(df['Responsável'].dropna().unique().tolist())
@@ -92,20 +107,38 @@ else:
     total_leads = len(df)
     agendados_count = df[df['Status'].str.contains('Agendado', case=False, na=False) | (df['Visita'] == 'Sim')].shape[0]
     visitas_count = df[df['Visita'].str.upper() == 'SIM'].shape[0]
+    sucessos_count = df[df['Status'].str.lower() == 'sucesso'].shape[0]
     
     taxa_conversao_visita = (visitas_count / total_leads * 100) if total_leads > 0 else 0
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.markdown(f"""<div class="metric-card"><h3>Total de Leads</h3><h1>{total_leads}</h1></div>""", unsafe_allow_html=True)
     with col2:
         st.markdown(f"""<div class="metric-card"><h3>Agendamentos</h3><h1>{agendados_count}</h1></div>""", unsafe_allow_html=True)
     with col3:
-        st.markdown(f"""<div class="metric-card"><h3>Visitas Realizadas</h3><h1>{visitas_count}</h1></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="metric-card"><h3>Visitas</h3><h1>{visitas_count}</h1></div>""", unsafe_allow_html=True)
     with col4:
+        st.markdown(f"""<div class="metric-card"><h3>Sucessos (Vendas)</h3><h1>{sucessos_count}</h1></div>""", unsafe_allow_html=True)
+    with col5:
         st.markdown(f"""<div class="metric-card"><h3>Taxa de Visita</h3><h1>{taxa_conversao_visita:.1f}%</h1></div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
+
+    # Gráficos Linha 0: Comparativo Mensal (Se houver múltiplos meses)
+    if len(df['Mês'].dropna().unique()) > 1:
+        st.subheader("📈 Comparativo de Leads e Conversões por Mês")
+        mensal_df = df.groupby('Mês').agg(
+            Total_Leads=('ID', 'count'),
+            Visitas=('Visita', lambda x: (x.str.upper() == 'SIM').sum()),
+            Sucessos=('Status', lambda x: (x.str.lower() == 'sucesso').sum())
+        ).reset_index().sort_values('Mês')
+
+        fig_mensal = px.bar(mensal_df, x='Mês', y=['Total_Leads', 'Visitas', 'Sucessos'],
+                            barmode='group', title="Evolução Mensal",
+                            color_discrete_sequence=['#1f77b4', '#2ca02c', '#ff7f0e'])
+        fig_mensal.update_layout(height=380, margin=dict(t=30, b=20, l=10, r=10))
+        st.plotly_chart(fig_mensal, use_container_width=True)
 
     # Gráficos Linha 1: Canais e Status
     col_g1, col_g2 = st.columns(2)
@@ -130,19 +163,19 @@ else:
     # Gráficos Linha 2: Desempenho por Atendente
     st.subheader("👥 Desempenho por Atendente / Responsável")
     
-    # Agrupar por atendente: Total de leads, Agendados e Visitas
     atendente_df = df.groupby('Responsável').agg(
         Total_Leads=('ID', 'count'),
         Visitas=('Visita', lambda x: (x.str.upper() == 'SIM').sum()),
+        Sucessos=('Status', lambda x: (x.str.lower() == 'sucesso').sum()),
         Agendados=('Status', lambda x: x.str.contains('Agendado', case=False, na=False).sum())
     ).reset_index()
     
     atendente_df['Taxa_Conversao'] = (atendente_df['Visitas'] / atendente_df['Total_Leads'] * 100).round(1)
     atendente_df = atendente_df.sort_values(by='Total_Leads', ascending=False)
 
-    fig_atendente = px.bar(atendente_df, x='Responsável', y=['Total_Leads', 'Visitas'], 
-                           barmode='group', title="Leads vs Visitas por Atendente",
-                           color_discrete_sequence=['#1f77b4', '#2ca02c'])
+    fig_atendente = px.bar(atendente_df, x='Responsável', y=['Total_Leads', 'Visitas', 'Sucessos'], 
+                           barmode='group', title="Leads, Visitas e Sucessos por Atendente",
+                           color_discrete_sequence=['#1f77b4', '#2ca02c', '#ff7f0e'])
     fig_atendente.update_layout(xaxis_tickangle=-45, height=400, margin=dict(t=30, b=50, l=10, r=10))
     st.plotly_chart(fig_atendente, use_container_width=True)
 
@@ -152,6 +185,7 @@ else:
             'Responsável': 'Atendente',
             'Total_Leads': 'Total de Leads',
             'Visitas': 'Visitas Realizadas',
+            'Sucessos': 'Vendas (Sucesso)',
             'Agendados': 'Agendados',
             'Taxa_Conversao': 'Taxa de Conversão (%)'
         }), use_container_width=True)
