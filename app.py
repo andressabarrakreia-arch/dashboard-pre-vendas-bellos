@@ -26,7 +26,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("📊 Dashboard de Pré-Vendas & Atendimento")
-st.markdown("Análise comparativa anual, canais, status e conversão com regra inteligente de deduplicação.")
+st.markdown("Análise comparativa por período, canais, status e performance por atendente com deduplicação inteligente.")
 
 # Upload do arquivo ou uso do arquivo padrão caso já esteja na pasta
 @st.cache_data
@@ -66,11 +66,9 @@ else:
     remover_duplicados = st.sidebar.checkbox("Remover Duplicados (Preservando 'Sucesso')", value=True)
     
     if remover_duplicados:
-        # Separa leads com Status 'Sucesso' (mantém todos) dos demais
         df_sucesso = df[df['Status'].str.lower() == 'sucesso']
         df_outros = df[df['Status'].str.lower() != 'sucesso']
         
-        # Deduplica apenas os outros com base no telefone
         df_outros_unicos = df_outros.dropna(subset=['Contato_Tel']).drop_duplicates(subset=['Contato_Tel'], keep='first')
         df_outros_sem_tel = df_outros[df_outros['Contato_Tel'].isna()]
         
@@ -125,7 +123,7 @@ else:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Gráficos Linha 0: Comparativo Mensal (Se houver múltiplos meses)
+    # Gráfico Comparativo Mensal (Se houver múltiplos meses)
     if len(df['Mês'].dropna().unique()) > 1:
         st.subheader("📈 Comparativo de Leads e Conversões por Mês")
         mensal_df = df.groupby('Mês').agg(
@@ -140,27 +138,57 @@ else:
         fig_mensal.update_layout(height=380, margin=dict(t=30, b=20, l=10, r=10))
         st.plotly_chart(fig_mensal, use_container_width=True)
 
-    # Gráficos Linha 1: Canais e Status
-    col_g1, col_g2 = st.columns(2)
+    # Seção 1: Análise por Canal (Origem)
+    st.subheader("📢 Desempenho por Canal (Origem)")
+    
+    canal_df = df.groupby('Origem').agg(
+        Total_Leads=('ID', 'count'),
+        Visitas=('Visita', lambda x: (x.str.upper() == 'SIM').sum()),
+        Sucessos=('Status', lambda x: (x.str.lower() == 'sucesso').sum())
+    ).reset_index()
+    canal_df['Taxa_Conversao'] = (canal_df['Visitas'] / canal_df['Total_Leads'] * 100).round(1)
+    canal_df = canal_df.sort_values(by='Total_Leads', ascending=False)
 
-    with col_g1:
-        st.subheader("📢 Leads por Canal (Origem)")
-        origem_counts = df['Origem'].value_counts().reset_index()
-        origem_counts.columns = ['Origem', 'Total']
-        fig_origem = px.bar(origem_counts.head(10), x='Total', y='Origem', orientation='h', 
-                             color='Total', color_continuous_scale='Blues', text='Total')
-        fig_origem.update_layout(yaxis={'categoryorder':'total ascending'}, margin=dict(t=10, b=10, l=10, r=10), height=350)
-        st.plotly_chart(fig_origem, use_container_width=True)
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        fig_canal_bar = px.bar(canal_df.head(10), x='Total_Leads', y='Origem', orientation='h',
+                               title="Top 10 Canais por Volume de Leads", text='Total_Leads',
+                               color='Total_Leads', color_continuous_scale='Blues')
+        fig_canal_bar.update_layout(yaxis={'categoryorder':'total ascending'}, height=380, margin=dict(t=30, b=10, l=10, r=10))
+        st.plotly_chart(fig_canal_bar, use_container_width=True)
 
-    with col_g2:
-        st.subheader("🎯 Distribuição por Status")
-        status_counts = df['Status'].value_counts().reset_index()
-        status_counts.columns = ['Status', 'Total']
-        fig_status = px.pie(status_counts, names='Status', values='Total', hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
-        fig_status.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
-        st.plotly_chart(fig_status, use_container_width=True)
+    with col_c2:
+        fig_canal_conv = px.bar(canal_df.head(10), x='Origem', y=['Visitas', 'Sucessos'],
+                                barmode='group', title="Visitas e Sucessos por Canal (Top 10)",
+                                color_discrete_sequence=['#2ca02c', '#ff7f0e'])
+        fig_canal_conv.update_layout(xaxis_tickangle=-45, height=380, margin=dict(t=30, b=50, l=10, r=10))
+        st.plotly_chart(fig_canal_conv, use_container_width=True)
 
-    # Gráficos Linha 2: Desempenho por Atendente
+    with st.expander("📋 Ver Tabela Completa de Desempenho por Canal"):
+        st.dataframe(canal_df.rename(columns={
+            'Origem': 'Canal',
+            'Total_Leads': 'Total de Leads',
+            'Visitas': 'Visitas Realizadas',
+            'Sucessos': 'Vendas (Sucesso)',
+            'Taxa_Conversao': 'Taxa de Visita (%)'
+        }), use_container_width=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Seção 2: Distribuição por Status (Substituindo pizza por gráfico de barras limpo e ordenado)
+    st.subheader("🎯 Distribuição por Status dos Leads")
+    status_counts = df['Status'].value_counts().reset_index()
+    status_counts.columns = ['Status', 'Total']
+    
+    fig_status = px.bar(status_counts, x='Status', y='Total', text='Total',
+                        color='Status', color_discrete_sequence=px.colors.qualitative.Prism,
+                        title="Volume de Leads por Status Atual")
+    fig_status.update_layout(height=350, margin=dict(t=30, b=20, l=10, r=10), showlegend=False)
+    st.plotly_chart(fig_status, use_container_width=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Seção 3: Desempenho por Atendente
     st.subheader("👥 Desempenho por Atendente / Responsável")
     
     atendente_df = df.groupby('Responsável').agg(
@@ -179,7 +207,6 @@ else:
     fig_atendente.update_layout(xaxis_tickangle=-45, height=400, margin=dict(t=30, b=50, l=10, r=10))
     st.plotly_chart(fig_atendente, use_container_width=True)
 
-    # Tabela detalhada por Atendente
     with st.expander("📋 Ver Tabela Detalhada de Performance por Atendente"):
         st.dataframe(atendente_df.rename(columns={
             'Responsável': 'Atendente',
