@@ -2,18 +2,40 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import glob
 
 st.set_page_config(
     page_title="Dashboard de Pré-Vendas | Belloscar",
-    page_icon="📊",
+    page_icon="🚗",
     layout="wide"
 )
 
-# Estilo visual moderno e limpo
+# Estilo visual moderno com a identidade visual da Belloscar
 st.markdown("""
     <style>
     .main {
-        background-color: #f8f9fa;
+        background-color: #f4f6f9;
+    }
+    .header-container {
+        background: linear-gradient(135deg, #1b2a4a 0%, #0f172a 100%);
+        padding: 25px;
+        border-radius: 12px;
+        color: white;
+        text-align: center;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .header-title {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0;
+        color: #ffffff;
+        letter-spacing: 1px;
+    }
+    .header-subtitle {
+        font-size: 16px;
+        color: #cbd5e1;
+        margin-top: 5px;
     }
     .metric-card {
         background-color: white;
@@ -21,27 +43,25 @@ st.markdown("""
         border-radius: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         text-align: center;
+        border-top: 4px solid #1f77b4;
     }
     </style>
+    
+    <div class="header-container">
+        <div class="header-title">🚗 BELLOSCAR — Gestão de Pré-Vendas & Atendimento</div>
+        <div class="header-subtitle">Painel Analítico de Leads, Canais, Agendamentos, Visitas e Vendas</div>
+    </div>
 """, unsafe_allow_html=True)
 
-st.title("📊 Dashboard de Pré-Vendas & Atendimento")
-st.markdown("Análise comparativa por período, canais, status e performance por atendente com deduplicação inteligente.")
-
-# Função para carregar os dados (prioriza o upload manual, senão busca o arquivo padrão do GitHub)
+# Função para carregar os dados automaticamente do GitHub ou via upload
 @st.cache_data
 def load_data(uploaded_file):
     if uploaded_file is not None:
         return pd.read_csv(uploaded_file)
     else:
-        # Tenta ler o arquivo padrão atualizado que está no GitHub
-        # (Coloque aqui exatamente o nome do arquivo CSV novo que você subiu no GitHub)
         try:
-            # Substitua abaixo pelo nome exato do seu arquivo CSV novo no GitHub, ou mantenha flexível:
-            import glob
             csv_files = glob.glob("*.csv")
             if csv_files:
-                # Pega o arquivo CSV mais recente ou o primeiro encontrado na pasta
                 return pd.read_csv(csv_files[0])
             else:
                 return None
