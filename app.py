@@ -28,23 +28,31 @@ st.markdown("""
 st.title("📊 Dashboard de Pré-Vendas & Atendimento")
 st.markdown("Análise comparativa por período, canais, status e performance por atendente com deduplicação inteligente.")
 
-# Upload do arquivo ou uso do arquivo padrão caso já esteja na pasta
+# Função para carregar os dados (prioriza o upload manual, senão busca o arquivo padrão do GitHub)
 @st.cache_data
 def load_data(uploaded_file):
     if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
+        return pd.read_csv(uploaded_file)
     else:
+        # Tenta ler o arquivo padrão atualizado que está no GitHub
+        # (Coloque aqui exatamente o nome do arquivo CSV novo que você subiu no GitHub)
         try:
-            df = pd.read_csv("leads-recebidos-26-09-2026-14_40.csv")
-        except:
+            # Substitua abaixo pelo nome exato do seu arquivo CSV novo no GitHub, ou mantenha flexível:
+            import glob
+            csv_files = glob.glob("*.csv")
+            if csv_files:
+                # Pega o arquivo CSV mais recente ou o primeiro encontrado na pasta
+                return pd.read_csv(csv_files[0])
+            else:
+                return None
+        except Exception as e:
             return None
-    return df
 
-uploaded_file = st.sidebar.file_uploader("📂 Envie seu relatório CSV (Anual ou Mensal)", type=["csv"])
+uploaded_file = st.sidebar.file_uploader("📂 Enviar novo relatório CSV (Opcional)", type=["csv"])
 df_raw = load_data(uploaded_file)
 
 if df_raw is None:
-    st.info("👋 Por favor, faça o upload do arquivo CSV do seu relatório para gerar o dashboard.")
+    st.warning("⚠️ Nenhum arquivo CSV foi encontrado na base do GitHub. Por favor, faça o upload de um relatório na barra lateral.")
 else:
     # Pré-processamento e limpeza
     df = df_raw.copy()
@@ -123,7 +131,7 @@ else:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Cores corretas solicitadas: Leads = Azul, Visitas = Laranja, Sucessos = Verde
+    # Cores corretas: Leads = Azul (#1f77b4), Visitas = Laranja (#e67e22), Sucessos = Verde (#27ae60)
     COLOR_LEAD = '#1f77b4'
     COLOR_VISITA = '#e67e22'
     COLOR_SUCESSO = '#27ae60'
@@ -222,6 +230,6 @@ else:
             'Taxa_Conversao': 'Taxa de Conversão (%)'
         }), use_container_width=True)
 
-    # Visualização da Base de Dados Tratada
+    # Visualização da Base de Dados Filtrada e Deduplicada
     with st.expander("🔍 Ver Base de Dados Filtrada e Deduplicada"):
         st.dataframe(df[['ID', 'Criado em', 'Responsável', 'Status', 'Visita', 'Origem', 'Cliente', 'Celular', 'Contato_Tel']], use_container_width=True)
