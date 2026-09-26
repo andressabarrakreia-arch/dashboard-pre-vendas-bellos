@@ -123,6 +123,11 @@ else:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # Cores solicitadas: Lead = Verde (#2ecc71), Visita = Laranja (#e67e22), Sucesso = Verde escuro (#27ae60)
+    COLOR_LEAD = '#2ecc71'
+    COLOR_VISITA = '#e67e22'
+    COLOR_SUCESSO = '#27ae60'
+
     # Gráfico Comparativo Mensal (Se houver múltiplos meses)
     if len(df['Mês'].dropna().unique()) > 1:
         st.subheader("📈 Comparativo de Leads e Conversões por Mês")
@@ -134,7 +139,7 @@ else:
 
         fig_mensal = px.bar(mensal_df, x='Mês', y=['Total_Leads', 'Visitas', 'Sucessos'],
                             barmode='group', title="Evolução Mensal",
-                            color_discrete_sequence=['#1f77b4', '#2ca02c', '#ff7f0e'])
+                            color_discrete_sequence=[COLOR_LEAD, COLOR_VISITA, COLOR_SUCESSO])
         fig_mensal.update_layout(height=380, margin=dict(t=30, b=20, l=10, r=10))
         st.plotly_chart(fig_mensal, use_container_width=True)
 
@@ -153,14 +158,14 @@ else:
     with col_c1:
         fig_canal_bar = px.bar(canal_df.head(10), x='Total_Leads', y='Origem', orientation='h',
                                title="Top 10 Canais por Volume de Leads", text='Total_Leads',
-                               color='Total_Leads', color_continuous_scale='Blues')
+                               color_discrete_sequence=[COLOR_LEAD])
         fig_canal_bar.update_layout(yaxis={'categoryorder':'total ascending'}, height=380, margin=dict(t=30, b=10, l=10, r=10))
         st.plotly_chart(fig_canal_bar, use_container_width=True)
 
     with col_c2:
         fig_canal_conv = px.bar(canal_df.head(10), x='Origem', y=['Visitas', 'Sucessos'],
                                 barmode='group', title="Visitas e Sucessos por Canal (Top 10)",
-                                color_discrete_sequence=['#2ca02c', '#ff7f0e'])
+                                color_discrete_sequence=[COLOR_VISITA, COLOR_SUCESSO])
         fig_canal_conv.update_layout(xaxis_tickangle=-45, height=380, margin=dict(t=30, b=50, l=10, r=10))
         st.plotly_chart(fig_canal_conv, use_container_width=True)
 
@@ -175,13 +180,13 @@ else:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Seção 2: Distribuição por Status (Substituindo pizza por gráfico de barras limpo e ordenado)
+    # Seção 2: Distribuição por Status
     st.subheader("🎯 Distribuição por Status dos Leads")
     status_counts = df['Status'].value_counts().reset_index()
     status_counts.columns = ['Status', 'Total']
     
     fig_status = px.bar(status_counts, x='Status', y='Total', text='Total',
-                        color='Status', color_discrete_sequence=px.colors.qualitative.Prism,
+                        color_discrete_sequence=[COLOR_LEAD],
                         title="Volume de Leads por Status Atual")
     fig_status.update_layout(height=350, margin=dict(t=30, b=20, l=10, r=10), showlegend=False)
     st.plotly_chart(fig_status, use_container_width=True)
@@ -203,7 +208,7 @@ else:
 
     fig_atendente = px.bar(atendente_df, x='Responsável', y=['Total_Leads', 'Visitas', 'Sucessos'], 
                            barmode='group', title="Leads, Visitas e Sucessos por Atendente",
-                           color_discrete_sequence=['#1f77b4', '#2ca02c', '#ff7f0e'])
+                           color_discrete_sequence=[COLOR_LEAD, COLOR_VISITA, COLOR_SUCESSO])
     fig_atendente.update_layout(xaxis_tickangle=-45, height=400, margin=dict(t=30, b=50, l=10, r=10))
     st.plotly_chart(fig_atendente, use_container_width=True)
 
