@@ -123,8 +123,8 @@ else:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Cores solicitadas: Lead = Verde (#2ecc71), Visita = Laranja (#e67e22), Sucesso = Verde escuro (#27ae60)
-    COLOR_LEAD = '#2ecc71'
+    # Cores corretas solicitadas: Leads = Azul, Visitas = Laranja, Sucessos = Verde
+    COLOR_LEAD = '#1f77b4'
     COLOR_VISITA = '#e67e22'
     COLOR_SUCESSO = '#27ae60'
 
