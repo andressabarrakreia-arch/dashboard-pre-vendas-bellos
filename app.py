@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -116,7 +115,7 @@ else:
         origem_counts = df['Origem'].value_counts().reset_index()
         origem_counts.columns = ['Origem', 'Total']
         fig_origem = px.bar(origem_counts.head(10), x='Total', y='Origem', orientation='h', 
-                             color='Total', color_continuousScale='Blues', text='Total')
+                             color='Total', color_continuous_scale='Blues', text='Total')
         fig_origem.update_layout(yaxis={'categoryorder':'total ascending'}, margin=dict(t=10, b=10, l=10, r=10), height=350)
         st.plotly_chart(fig_origem, use_container_width=True)
 
@@ -160,4 +159,3 @@ else:
     # Visualização da Base de Dados Tratada
     with st.expander("🔍 Ver Base de Dados Filtrada e Deduplicada"):
         st.dataframe(df[['ID', 'Criado em', 'Responsável', 'Status', 'Visita', 'Origem', 'Cliente', 'Celular', 'Contato_Tel']], use_container_width=True)
-
